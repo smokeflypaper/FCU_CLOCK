@@ -1,0 +1,6 @@
+# WINCTRL 32 FCU only; logind grants access to the active local user.
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="4098", ATTRS{idProduct}=="bb10", TAG+="uaccess"
+# Some hidapi distributions use libusb instead of hidraw.
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="4098", ATTR{idProduct}=="bb10", TAG+="uaccess"
+# Virtual keyboard/mouse for Wayland and X11 desktop controls.
+SUBSYSTEM=="misc", KERNEL=="uinput", TAG+="uaccess", OPTIONS+="static_node=uinput"

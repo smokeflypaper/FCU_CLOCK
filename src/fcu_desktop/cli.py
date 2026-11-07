@@ -8,11 +8,11 @@ from typing import Callable, TextIO
 
 from .clock import ClockFields
 from .controls import DesktopController
-from .device import select_fcu
+from .device import load_hid, select_fcu
 from .inputs import decode_transitions
 from .protocol import build_display_reports, build_led_report
 from .weather import fetch_temperature, format_temperature
-from .system_actions import WindowsActions
+from .platform_actions import NoActions, create_actions
 
 
 class VolumeOverlay:
@@ -42,8 +42,10 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="fcu-desktop")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("discover", help="Find the WINCTRL 32 FCU")
+    commands.add_parser("doctor", help="Check hardware and desktop dependencies")
     clock = commands.add_parser("clock", help="Show local system time and date")
     clock.add_argument("--once", action="store_true", help="Write once, then exit")
+    clock.add_argument("--no-controls", action="store_true", help="Clock and FCU brightness only")
     return parser
 
 
@@ -77,9 +79,21 @@ def main(
 ) -> int:
     args = _parser().parse_args(argv)
     if hid_module is None:
-        import hid as hid_module
+        try:
+            hid_module = load_hid()
+        except ImportError as error:
+            print(f"HID dependency missing: {error}. Run python -m pip install -e .", file=output)
+            return 1
 
-    descriptor = select_fcu(hid_module.enumerate())
+    try:
+        descriptor = select_fcu(hid_module.enumerate())
+    except OSError as error:
+        print(f"HID discovery failed: {error}", file=output)
+        return 1
+    if args.command == "doctor":
+        from .diagnostics import diagnose
+        result = diagnose(hid_module, descriptor, output)
+        return 2 if descriptor is None else result
     if descriptor is None:
         print("WINCTRL 32 FCU nebylo nalezeno.", file=output)
         print("Ukoncete MobiFlight a SimAppPro, pripojte FCU a zkuste to znovu.", file=output)
@@ -91,6 +105,7 @@ def main(
         return 0
 
     handle = hid_module.device()
+    owned_actions = None
     try:
         if temperature_provider is None:
             temperature_provider = fetch_temperature
@@ -118,14 +133,22 @@ def main(
             overlay_displayed = True
             _write_clock(handle, now(), temperature, spd_override=str(percent))
 
-        controller = DesktopController(
-            system_actions or WindowsActions(), handle, on_volume=show_volume
-        )
         _write_clock(handle, now(), temperature)
         if args.once:
             print("Cas a datum byly zapsany do FCU.", file=output)
             return 0
 
+        actions = system_actions
+        if args.no_controls:
+            actions = NoActions()
+        elif actions is None:
+            actions = owned_actions = create_actions()
+        if hasattr(actions, "prepare"):
+            try:
+                actions.prepare()
+            except (OSError, RuntimeError, ImportError) as error:
+                print(f"Desktop input unavailable: {error}. Clock and audio remain available.", file=output)
+        controller = DesktopController(actions, handle, on_volume=show_volume)
         print("FCU Desktop bezi. Ukonceni: Ctrl+C", file=output)
         previous_state = 0
         last_minute = None
@@ -162,14 +185,24 @@ def main(
             if report:
                 events, previous_state = decode_transitions(report, previous_state)
                 for event in events:
-                    controller.handle(event)
+                    try:
+                        controller.handle(event)
+                    except (OSError, RuntimeError, ValueError, KeyError, ImportError) as error:
+                        print(f"Action {event.control} failed: {error}", file=output)
                     state = "stisk" if event.pressed else "uvolneni"
                     print(f"{event.control}: {state}", file=output)
     except KeyboardInterrupt:
         print("FCU Desktop ukoncen.", file=output)
         return 0
+    except (OSError, RuntimeError) as error:
+        print(f"FCU error: {error}. Close other FCU programs; check USB and Linux udev permissions (README).", file=output)
+        return 1
     finally:
-        handle.close()
+        try:
+            handle.close()
+        finally:
+            if owned_actions is not None and hasattr(owned_actions, "close"):
+                owned_actions.close()
 
 
 if __name__ == "__main__":
