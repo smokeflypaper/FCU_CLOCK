@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fcu-desktop"
+version = "0.1.0"
+description = "Use a WINCTRL 32 FCU as a standalone clock and desktop controller"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "GPL-3.0-or-later"
+dependencies = [
+    "hidapi>=0.14.0",
+    "pycaw>=20240210; sys_platform == 'win32'",
+    "comtypes>=1.4.0; sys_platform == 'win32'",
+]
+
+[project.scripts]
+fcu-desktop = "fcu_desktop.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
