@@ -124,6 +124,16 @@ When the active application has no matching audio stream, SPD falls back to the 
 
 `doctor` checks access without changing the FCU display or sending keys. `clock --once` writes the display and exits. The final command keeps the clock and controls running; stop with **Ctrl+C**. Start only one instance. Close any simulator software that owns the FCU first.
 
+To keep the clock running after closing the terminal (systemd user session), stop the foreground instance with Ctrl+C first, then run:
+
+```bash
+./scripts/run-linux-background.sh
+systemctl --user status fcu-clock
+journalctl --user -u fcu-clock -n 50 --no-pager
+```
+
+This starts a background service, retains error logs, and restarts the program after an unexpected failure. It does not enable automatic startup at login. To stop it, use `systemctl --user stop fcu-clock`; to restart it, use `systemctl --user restart fcu-clock`. Do not run the foreground launcher at the same time. Weather and desktop environment settings from the launching terminal are passed to the service.
+
 For clock and FCU brightness only, use `./scripts/run-linux.sh clock --no-controls`. This does not require access to `/dev/uinput` or an audio server.
 
 Set weather coordinates before launch; no location is assumed or committed:
