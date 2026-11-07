@@ -10,7 +10,9 @@ Use a **WINCTRL 32 FCU** as a standalone clock and desktop controller.
 - **Linux:** HID clock and desktop backend implemented; hardware-tested on Arch Linux / KDE Plasma 6 / Wayland. See the compatibility table below.
 - **License:** GPL-3.0-or-later
 
-The USB display/input protocol is shared across platforms.
+The USB display/input protocol is shared across platforms. One project supports both operating systems and selects the desktop backend automatically.
+
+**Installation:** [Windows](#install-and-run-on-windows) · [Linux](#install-and-run-on-linux)
 
 ## What the displays show
 
@@ -86,7 +88,7 @@ python3 -m venv .venv
 .venv/bin/python -m pip install -e .
 ```
 
-Until Linux support is merged into the default branch, run `git switch feature/linux` before installation (the branch must first be published by the maintainer).
+If you are testing the Linux branch before it is merged, run `git switch feature/linux` after cloning and before installation.
 
 ### 3. Allow access to the FCU and virtual keyboard
 
@@ -154,6 +156,40 @@ FCU_CLOCK_LONGITUDE=14.4378
 ```
 
 Both Linux launchers load this local shell configuration and export its values. Values in this file override those inherited from the terminal. Keep it outside the repository and only put trusted shell assignments in it.
+
+### 6. Optional automatic startup after login
+
+On KDE and other desktops integrated with systemd's `graphical-session.target`, create `~/.config/systemd/user/fcu-clock.service` with the following contents. Replace `/absolute/path/to/FCU_CLOCK` with your actual checkout path; keep the quotes if the path contains spaces.
+
+```ini
+[Unit]
+Description=FCU CLOCK desktop clock and controls
+After=graphical-session.target
+PartOf=graphical-session.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStart="/absolute/path/to/FCU_CLOCK/scripts/run-linux.sh" clock
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=graphical-session.target
+```
+
+Stop any foreground instance first. If you used the temporary background launcher, stop its service before reloading:
+
+```bash
+systemctl --user stop fcu-clock.service  # Ignore "not loaded" if it has never run
+systemctl --user daemon-reload
+systemctl --user enable --now fcu-clock.service
+systemctl --user status fcu-clock.service
+```
+
+FCU_CLOCK now starts with your graphical session after each login and stops at logout. It retries after a device/access failure, so a disconnected FCU can be plugged in later. It loads the same private weather configuration described above. Once installed, use `systemctl --user restart fcu-clock` rather than the temporary background launcher. To disable automatic startup, run `systemctl --user disable --now fcu-clock`.
+
+This setup was verified on KDE Plasma. If your desktop does not activate `graphical-session.target` or import its display environment into the user service manager, use that desktop's autostart settings instead.
 
 ### Linux compatibility
 
