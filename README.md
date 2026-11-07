@@ -1,17 +1,15 @@
 # FCU_CLOCK
 
-Use a **WINCTRL 32 FCU** as a standalone clock and desktop controller — no flight simulator required.
+Use a **WINCTRL 32 FCU** as a standalone clock and desktop controller.
 
 ![FCU_CLOCK display and control layout](docs/assets/fcu-clock-controls-2026.png)
 
 ## Status
 
-- **Windows 10/11:** supported now
-- **Linux:** planned; it will live in this same repository
-- **Price:** free and open source
+- **Windows 10/11:** and **Linux:** supported
 - **License:** GPL-3.0-or-later
 
-The USB display/input protocol is shared across platforms. Operating-system actions such as volume, media keys, window control and brightness need a platform-specific backend, so Windows ships first and Linux support can be added without splitting the project.
+The USB display/input protocol is shared across platforms.
 
 ## What the displays show
 
@@ -22,7 +20,7 @@ The USB display/input protocol is shared across platforms. Operating-system acti
 | ALT | Local date as `DD MM` |
 | V/S | Current outdoor temperature for the configured location |
 
-## Default Windows controls
+## Default controls
 
 | FCU control | Action |
 |---|---|
@@ -40,7 +38,7 @@ The USB display/input protocol is shared across platforms. Operating-system acti
 
 - WINCTRL 32 FCU connected by USB
 - Python 3.11 or newer
-- Windows 10 or Windows 11 for the current release
+- Windows 10 or Windows 11 / linux
 
 > [!IMPORTANT]
 > Close MobiFlight and SimAppPro before starting FCU_CLOCK. Only one program can control the FCU HID device at a time.
@@ -245,10 +243,6 @@ fcu-desktop clock
 The operating-system actions are implemented in [`src/fcu_desktop/system_actions.py`](src/fcu_desktop/system_actions.py). Hardware input names and transitions are decoded in [`src/fcu_desktop/inputs.py`](src/fcu_desktop/inputs.py), while mapping and FCU brightness behavior live in [`src/fcu_desktop/controls.py`](src/fcu_desktop/controls.py).
 
 ALT brightness is handled separately in `DesktopController`, because it sends brightness commands directly back to the FCU rather than invoking an operating-system action.
-
-## Linux plan
-
-Linux will be added here, not as a second project. The clock, weather, HID reports and FCU input decoding can remain shared. Only desktop actions need Linux implementations (for example PipeWire volume, media keys and desktop shortcuts).
 
 ## Development
 
