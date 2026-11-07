@@ -8,7 +8,7 @@ Tested on Arch Linux, KDE Plasma 6, Wayland, Python 3.14, PipeWire with PulseAud
 - `clock --once`: actual HID backlight/time/date writes succeed using hidraw. The installed hidapi wheel's libusb module could enumerate but could not open the USB device with the local permissions; the hidraw module works without root.
 - Virtual input round-trip through the kernel verifies right-key press/release and wheel direction. KDE also delivered both to an XWayland xev test window. This does not prove every application's native Wayland input handling.
 - A silent, temporary paplay stream verified application-volume write/readback and mute on actual PipeWire. No unrelated application's volume was changed.
-- Windows action/volume modules, shared protocol, mappings and input decoder are unchanged. Windows hardware was not available. CI is configured for Windows/Ubuntu with Python 3.11/3.13; hosted CI has not yet run for these local changes.
+- Windows action/volume modules, shared protocol, mappings and input decoder are unchanged. Windows hardware was not available. CI is configured for Windows/Ubuntu with Python 3.11/3.13; hosted CI passed on Windows and Ubuntu with Python 3.11 and 3.13 before merging.
 
 Remaining user validation: physically turn/press each FCU control and confirm the display, brightness channels and application-specific media behavior. Other distributions/desktops and sandboxed audio applications need real-world testing. Weather is unchanged and requires user-provided coordinates.
 
@@ -23,3 +23,5 @@ Added an optional systemd user background launcher with journal capture and rest
 Reproduced the user's desktop flash directly: KWin showDesktop(true) reverted to false within 50 ms without any FCU input. Switched to the available KDE MinimizeAll action. Verified the production LinuxActions implementation leaves all normal windows minimized after one second, and a second invocation restores the exact original minimized states (including previously minimized windows).
 
 Both Linux launchers now load private weather settings from the user's config.env. A real Open-Meteo fetch and FCU clock --once completed successfully with the requested local coordinates. The background service was restarted with those settings. 72 tests and shell/diff checks pass. Location values are kept outside Git.
+
+The user confirmed the corrected desktop toggle and weather work. Login autostart was enabled and verified locally. The shared Windows/Linux implementation is ready for the main branch.

@@ -88,8 +88,6 @@ python3 -m venv .venv
 .venv/bin/python -m pip install -e .
 ```
 
-If you are testing the Linux branch before it is merged, run `git switch feature/linux` after cloning and before installation.
-
 ### 3. Allow access to the FCU and virtual keyboard
 
 ```bash
