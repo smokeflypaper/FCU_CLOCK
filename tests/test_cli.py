@@ -90,6 +90,7 @@ class CliTests(unittest.TestCase):
         with patch("fcu_desktop.cli.time.sleep") as sleep:
             exit_code = main(
                 ["clock"],
+                system_actions=object(),
                 hid_module=hid,
                 output=io.StringIO(),
                 now=lambda: datetime(2026, 11, 7, 14, 3),
@@ -174,3 +175,59 @@ class CliTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class LinuxIntegrationTests(unittest.TestCase):
+    def hid(self):
+        return FakeHid([{'vendor_id': 0x4098, 'product_id': 0xBB10, 'path': b'fcu'}])
+
+    def test_once_never_initializes_desktop_backend(self):
+        hid = self.hid()
+        with patch('fcu_desktop.cli.create_actions', side_effect=AssertionError('desktop initialized')):
+            self.assertEqual(main(['clock', '--once'], hid_module=hid,
+                                  temperature_provider=lambda: None, output=io.StringIO()), 0)
+
+    def test_open_failure_reports_permissions_and_closes(self):
+        hid = self.hid()
+        hid.handle.open_path = lambda path: (_ for _ in ()).throw(OSError('permission denied'))
+        output = io.StringIO()
+        self.assertEqual(main(['clock', '--once'], hid_module=hid,
+                              temperature_provider=lambda: None, output=output), 1)
+        self.assertIn('udev', output.getvalue())
+        self.assertTrue(hid.handle.closed)
+
+    def test_no_controls_does_not_initialize_desktop_backend(self):
+        hid = self.hid()
+        hid.handle = InterruptingHandle()
+        with patch('fcu_desktop.cli.create_actions', side_effect=AssertionError('desktop initialized')):
+            self.assertEqual(main(['clock', '--no-controls'], hid_module=hid,
+                                  temperature_provider=lambda: None, output=io.StringIO()), 0)
+
+    def test_action_error_does_not_stop_clock_and_owned_actions_close(self):
+        from fcu_desktop.inputs import InputEvent
+        hid = self.hid()
+        class OneReport(InterruptingHandle):
+            def read(self, size, timeout_ms):
+                if not self.read_timeouts:
+                    self.read_timeouts.append(timeout_ms)
+                    return [1]
+                raise KeyboardInterrupt
+        class BrokenActions:
+            closed = False
+            def invoke(self, action):
+                raise RuntimeError('audio disconnected')
+            def close(self):
+                self.closed = True
+        hid.handle = OneReport()
+        actions = BrokenActions()
+        output = io.StringIO()
+        with patch('fcu_desktop.cli.create_actions', return_value=actions), \
+             patch('fcu_desktop.cli.decode_transitions', return_value=([InputEvent('SPD INC', True)], 0)):
+            self.assertEqual(main(['clock'], hid_module=hid, temperature_provider=lambda: None, output=output), 0)
+        self.assertTrue(actions.closed)
+        self.assertIn('audio disconnected', output.getvalue())
+
+    def test_doctor_without_device_is_failure_not_crash(self):
+        output = io.StringIO()
+        with patch('fcu_desktop.cli.sys.platform', 'win32'):
+            self.assertEqual(main(['doctor'], hid_module=FakeHid([]), output=output), 2)
+        self.assertIn('FCU', output.getvalue())

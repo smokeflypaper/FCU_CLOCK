@@ -6,7 +6,8 @@ Use a **WINCTRL 32 FCU** as a standalone clock and desktop controller.
 
 ## Status
 
-- **Windows 10/11:** and **Linux:** supported
+- **Windows 10/11:** original native implementation preserved
+- **Linux:** HID clock and desktop backend implemented; hardware-tested on Arch Linux / KDE Plasma 6 / Wayland. See the compatibility table below.
 - **License:** GPL-3.0-or-later
 
 The USB display/input protocol is shared across platforms.
@@ -38,7 +39,7 @@ The USB display/input protocol is shared across platforms.
 
 - WINCTRL 32 FCU connected by USB
 - Python 3.11 or newer
-- Windows 10 or Windows 11 / linux
+- Windows 10/11, or Linux with a local graphical session
 
 > [!IMPORTANT]
 > Close MobiFlight and SimAppPro before starting FCU_CLOCK. Only one program can control the FCU HID device at a time.
@@ -54,6 +55,101 @@ fcu-desktop clock
 ```
 
 Use `Ctrl+C` to stop it. Run `fcu-desktop clock --once` for a single display update and hardware check.
+
+## Install and run on Linux
+
+The program runs as your normal desktop user. Python dependencies are isolated in `.venv`.
+
+### 1. Install system dependencies
+
+Use the commands for your distribution (Python **3.11+** required):
+
+```bash
+# Arch Linux
+sudo pacman -S --needed python python-pip base-devel linux-api-headers libpulse
+
+# Ubuntu 24.04+ / Debian 12+
+sudo apt install python3 python3-venv python3-dev build-essential linux-libc-dev pulseaudio-utils
+
+# Fedora
+sudo dnf install python3 python3-devel gcc kernel-headers pulseaudio-utils
+```
+
+PipeWire with its PulseAudio compatibility service, or PulseAudio, must be running for volume controls. These commands install the `pactl` client, not a replacement audio server.
+
+### 2. Download and install
+
+```bash
+git clone https://github.com/smokeflypaper/FCU_CLOCK.git
+cd FCU_CLOCK
+python3 -m venv .venv
+.venv/bin/python -m pip install -e .
+```
+
+Until Linux support is merged into the default branch, run `git switch feature/linux` before installation (the branch must first be published by the maintainer).
+
+### 3. Allow access to the FCU and virtual keyboard
+
+```bash
+sudo install -m 644 packaging/linux/70-fcu-clock.rules /etc/udev/rules.d/70-fcu-clock.rules
+sudo modprobe uinput
+printf 'uinput\n' | sudo tee /etc/modules-load.d/fcu-clock.conf
+sudo udevadm control --reload-rules
+sudo udevadm trigger --subsystem-match=misc --sysname-match=uinput
+```
+
+Unplug/reconnect the FCU, then log out and log in again. These rules use systemd-logind to grant the active local user access to this FCU and `/dev/uinput`. The latter permits simulated keyboard/mouse input. No world-writable device rules or membership in the broad `input` group are needed. On systems without systemd-logind, configure equivalent device access through your distribution's seat manager. Do not run FCU_CLOCK with `sudo`.
+
+### 4. Enable foreground application volume
+
+- **KDE Plasma 6 (Wayland):** install [kdotool](https://github.com/jinliu/kdotool) and `qdbus6` (Arch: `qt6-tools`; other distributions may call it `qdbus-qt6`). If kdotool is not packaged for your distribution, build it using Rust/Cargo and the D-Bus development headers:
+
+  ```bash
+  # Build dependencies: Arch: rust pkgconf dbus; Debian/Ubuntu: cargo pkg-config libdbus-1-dev
+  cargo install --git https://github.com/jinliu/kdotool --locked
+  ```
+
+- **X11:** install `xdotool` from your distribution.
+- **Other Wayland desktops:** SPD controls the default audio output. Identifying another application's process is compositor-specific; there is no universal foreground-process API.
+
+When the active application has no matching audio stream, SPD falls back to the default output. Application matching includes child processes (for example browser audio processes), but sandboxed applications may hide or remap their process IDs. The SPD display temporarily shows the resulting volume in percent.
+
+### 5. Check and launch
+
+```bash
+./scripts/run-linux.sh doctor
+./scripts/run-linux.sh clock --once
+./scripts/run-linux.sh
+```
+
+`doctor` checks access without changing the FCU display or sending keys. `clock --once` writes the display and exits. The final command keeps the clock and controls running; stop with **Ctrl+C**. Start only one instance. Close any simulator software that owns the FCU first.
+
+For clock and FCU brightness only, use `./scripts/run-linux.sh clock --no-controls`. This does not require access to `/dev/uinput` or an audio server.
+
+Set weather coordinates before launch; no location is assumed or committed:
+
+```bash
+export FCU_CLOCK_LATITUDE="50.0755"
+export FCU_CLOCK_LONGITUDE="14.4378"
+./scripts/run-linux.sh
+```
+
+These example coordinates are Prague. Without coordinates, the clock runs with temperature unavailable.
+
+### Linux compatibility
+
+| Feature | KDE Plasma 6 Wayland | X11 | Other Wayland desktops |
+|---|---|---|---|
+| Clock, date, weather, FCU brightness | Yes | Yes | Yes |
+| Arrows, Home, media key, wheel | uinput | uinput | uinput |
+| Foreground application volume | kdotool + pactl | xdotool + pactl | Default output volume |
+| Show/restore desktop | KDE D-Bus | Desktop shortcut | Desktop shortcut if supported |
+
+Only Arch/KDE/Wayland has been tested with physical hardware here. Automated tests cover Linux behavior and Windows regression cases; the CI workflow runs on Windows and Ubuntu. Other desktop environments still need real-world validation.
+
+Outside KDE, show-desktop sends `Super+D`. Configure that shortcut in your desktop, or set `FCU_CLOCK_DESKTOP_SHORTCUT=ctrl+alt+d` for desktops using that binding. GNOME may require configuring a show-desktop shortcut/extension. Media key behavior depends on your desktop's media integration.
+
+If a desktop action fails, an error is printed and the clock keeps running. Check `doctor` and the message in the terminal. A USB disconnect stops the program with a useful error; reconnect and restart it. Linux uses the `hidraw` module when provided by hidapi, avoiding libusb claiming the kernel HID interface; libusb-only builds use the included USB permission rule.
 
 ## Customize FCU_CLOCK
 
@@ -240,7 +336,7 @@ fcu-desktop clock
 | Unused encoder rotation | Zoom, brush size, timeline scrubbing or application-specific shortcuts |
 | `F13`–`F24` mappings | Trigger OBS scenes, Discord controls or automation software without conflicting with normal keys |
 
-The operating-system actions are implemented in [`src/fcu_desktop/system_actions.py`](src/fcu_desktop/system_actions.py). Hardware input names and transitions are decoded in [`src/fcu_desktop/inputs.py`](src/fcu_desktop/inputs.py), while mapping and FCU brightness behavior live in [`src/fcu_desktop/controls.py`](src/fcu_desktop/controls.py).
+Windows actions are implemented in [`src/fcu_desktop/system_actions.py`](src/fcu_desktop/system_actions.py); Linux actions are in [`src/fcu_desktop/linux_actions.py`](src/fcu_desktop/linux_actions.py). Runtime selection is in `platform_actions.py`. The Windows customization examples above apply to Windows; add Linux key codes/actions to `linux_actions.py` for Linux. Hardware input names and transitions are decoded in [`src/fcu_desktop/inputs.py`](src/fcu_desktop/inputs.py), while mapping and FCU brightness behavior live in [`src/fcu_desktop/controls.py`](src/fcu_desktop/controls.py).
 
 ALT brightness is handled separately in `DesktopController`, because it sends brightness commands directly back to the FCU rather than invoking an operating-system action.
 
