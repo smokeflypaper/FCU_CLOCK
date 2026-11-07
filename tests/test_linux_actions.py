@@ -143,3 +143,20 @@ class InputTests(unittest.TestCase):
         actions = LinuxActions(backend=object(), app_volume=object())
         with self.assertRaises(ValueError):
             actions.invoke('nonsense')
+
+class DesktopToggleRegressionTests(unittest.TestCase):
+    def test_kde_prefers_persistent_minimize_all_over_peek(self):
+        calls = []
+        def run(*args):
+            calls.append(args)
+            if args[-1] == 'org.kde.kglobalaccel.Component.shortcutNames':
+                return 'Show Desktop\nMinimizeAll\nMinimizeAllActiveScreen'
+            return ''
+        actions = LinuxActions(backend=object(), app_volume=object(), env={'XDG_CURRENT_DESKTOP':'KDE'}, run=run)
+        with patch('shutil.which', return_value='/usr/bin/qdbus6'):
+            actions.invoke('show_desktop')
+            actions.invoke('show_desktop')
+        toggles = [c for c in calls if 'org.kde.kglobalaccel.Component.invokeShortcut' in c]
+        self.assertEqual(toggles, [('/usr/bin/qdbus6','org.kde.kglobalaccel','/component/kwin',
+                                   'org.kde.kglobalaccel.Component.invokeShortcut','MinimizeAll')]*2)
+        self.assertFalse(any('org.kde.KWin.showDesktop' in c for c in calls))

@@ -30,3 +30,23 @@ class BackgroundLauncherTests(unittest.TestCase):
             self.assertIn('--setenv=WAYLAND_DISPLAY=wayland-test', args)
             self.assertIn('--setenv=FCU_CLOCK_LATITUDE=50.0', args)
             self.assertIn('--property=Restart=on-failure', args)
+
+    def test_foreground_launcher_loads_persistent_private_weather_config(self):
+        script = Path(__file__).resolve().parents[1] / 'scripts' / 'run-linux.sh'
+        with tempfile.TemporaryDirectory(prefix='fcu weather ') as temp:
+            root = Path(temp)
+            (root / 'scripts').mkdir()
+            (root / '.venv/bin').mkdir(parents=True)
+            config = root / 'config/fcu-clock'
+            config.mkdir(parents=True)
+            (config / 'config.env').write_text('FCU_CLOCK_LATITUDE=50.0\nFCU_CLOCK_LONGITUDE=15.0\n')
+            copy = root / 'scripts/run-linux.sh'
+            shutil.copyfile(script, copy)
+            runner = root / '.venv/bin/fcu-desktop'
+            runner.write_text('#!/usr/bin/env python3\nimport os,json\nprint(json.dumps([os.getenv("FCU_CLOCK_LATITUDE"),os.getenv("FCU_CLOCK_LONGITUDE")]))\n')
+            runner.chmod(0o755)
+            env = dict(os.environ, XDG_CONFIG_HOME=str(root / 'config'))
+            env.pop('FCU_CLOCK_LATITUDE',None)
+            env.pop('FCU_CLOCK_LONGITUDE',None)
+            result = subprocess.run(['bash', str(copy),'clock','--once'],env=env,capture_output=True,text=True,check=True)
+            self.assertEqual(json.loads(result.stdout),['50.0','15.0'])

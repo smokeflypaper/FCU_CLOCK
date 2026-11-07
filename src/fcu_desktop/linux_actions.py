@@ -156,6 +156,15 @@ class LinuxActions:
             if 'KDE' in self.env.get('XDG_CURRENT_DESKTOP', '').upper().split(':'):
                 qdbus = shutil.which('qdbus6') or shutil.which('qdbus')
                 if qdbus:
+                    shortcuts = self.run(qdbus, 'org.kde.kglobalaccel', '/component/kwin',
+                                         'org.kde.kglobalaccel.Component.shortcutNames').splitlines()
+                    if 'MinimizeAll' in shortcuts:
+                        # KDE's peek-at-desktop mode can immediately dismiss itself
+                        # (for example with focus-following/desktop effects). The
+                        # built-in script remembers exactly which windows to restore.
+                        self.run(qdbus, 'org.kde.kglobalaccel', '/component/kwin',
+                                 'org.kde.kglobalaccel.Component.invokeShortcut', 'MinimizeAll')
+                        return None
                     state = self.run(qdbus, 'org.kde.KWin', '/KWin', 'org.kde.KWin.showingDesktop')
                     self.run(qdbus, 'org.kde.KWin', '/KWin', 'org.kde.KWin.showDesktop',
                              'false' if state == 'true' else 'true')

@@ -146,6 +146,15 @@ export FCU_CLOCK_LONGITUDE="14.4378"
 
 These example coordinates are Prague. Without coordinates, the clock runs with temperature unavailable.
 
+To keep your location across restarts, create `~/.config/fcu-clock/config.env` (or `$XDG_CONFIG_HOME/fcu-clock/config.env`):
+
+```bash
+FCU_CLOCK_LATITUDE=50.0755
+FCU_CLOCK_LONGITUDE=14.4378
+```
+
+Both Linux launchers load this local shell configuration and export its values. Values in this file override those inherited from the terminal. Keep it outside the repository and only put trusted shell assignments in it.
+
 ### Linux compatibility
 
 | Feature | KDE Plasma 6 Wayland | X11 | Other Wayland desktops |
@@ -153,9 +162,11 @@ These example coordinates are Prague. Without coordinates, the clock runs with t
 | Clock, date, weather, FCU brightness | Yes | Yes | Yes |
 | Arrows, Home, media key, wheel | uinput | uinput | uinput |
 | Foreground application volume | kdotool + pactl | xdotool + pactl | Default output volume |
-| Show/restore desktop | KDE D-Bus | Desktop shortcut | Desktop shortcut if supported |
+| Show/restore desktop | KDE MinimizeAll (D-Bus) | Desktop shortcut | Desktop shortcut if supported |
 
 Only Arch/KDE/Wayland has been tested with physical hardware here. Automated tests cover Linux behavior and Windows regression cases; the CI workflow runs on Windows and Ubuntu. Other desktop environments still need real-world validation.
+
+On KDE, FCU_CLOCK prefers the built-in **Minimize All** KWin script, which minimizes windows and restores the same set on the next press. Enable it in System Settings → Window Management → KWin Scripts if needed. Without it, the program falls back to KDE's peek-at-desktop mode; some focus policies/effects can dismiss that mode immediately.
 
 Outside KDE, show-desktop sends `Super+D`. Configure that shortcut in your desktop, or set `FCU_CLOCK_DESKTOP_SHORTCUT=ctrl+alt+d` for desktops using that binding. GNOME may require configuring a show-desktop shortcut/extension. Media key behavior depends on your desktop's media integration.
 

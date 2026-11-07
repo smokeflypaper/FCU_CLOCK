@@ -17,3 +17,9 @@ Remaining user validation: physically turn/press each FCU control and confirm th
 The previously launched foreground process was no longer running; its exit cause was not retained, so the original failure is not diagnosed. During a supervised restart, physical SPD/HDG/ALT/V/S rotations, the ALT selector, MACH, SPD PUSH and HDG PUSH arrived and were handled without reported action errors. The audio server reported Brave at 70% after the SPD exercise. Display appearance and perceived behavior still require user confirmation.
 
 Added an optional systemd user background launcher with journal capture and restart-on-failure. It was started locally and verified active with exclusive local FCU ownership; this launch does not depend on an open terminal and does not enable login autostart.
+
+## Desktop-toggle and weather follow-up
+
+Reproduced the user's desktop flash directly: KWin showDesktop(true) reverted to false within 50 ms without any FCU input. Switched to the available KDE MinimizeAll action. Verified the production LinuxActions implementation leaves all normal windows minimized after one second, and a second invocation restores the exact original minimized states (including previously minimized windows).
+
+Both Linux launchers now load private weather settings from the user's config.env. A real Open-Meteo fetch and FCU clock --once completed successfully with the requested local coordinates. The background service was restarted with those settings. 72 tests and shell/diff checks pass. Location values are kept outside Git.
