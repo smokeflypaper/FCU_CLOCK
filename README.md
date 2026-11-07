@@ -206,7 +206,7 @@ ACTION_MAP = {
 }
 ```
 
-Only run scripts you wrote or trust. Do not commit personal paths, usernames, coordinates, tokens or passwords to a public repository.
+Only run scripts you wrote or trust.
 
 ### 6. Configure weather for your location
 
@@ -218,7 +218,7 @@ $env:FCU_CLOCK_LONGITUDE = "14.4378"
 fcu-desktop clock
 ```
 
-Those example coordinates point to Prague. For a permanent private launcher, put the two `set` commands in your local `.cmd` file, but do not commit that launcher if it contains your exact location.
+Those example coordinates point to Prague. For a permanent private launcher, put the two `set` commands in your local `.cmd` file.
 
 ```bat
 @echo off
